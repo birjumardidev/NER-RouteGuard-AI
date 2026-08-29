@@ -1,8 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
   title: "NER SmartRoute AI",
-  description: "Safer route intelligence for Northeast logistics drivers.",
+  description: "Simple AI navigation that finds a safer route for your trip.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: "#f4f1ea",
 };
 
 export default function RootLayout({

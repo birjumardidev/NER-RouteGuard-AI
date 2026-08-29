@@ -63,9 +63,9 @@ type RouteWeather = {
 };
 
 const routeColors = [
-  "#f1af26", // first route is now orange/yellow
-  "#3489dd", // second route is now blue
+  "#3489dd", 
   "#c65cf2",
+  "#f1af26",
   "#57c7d4",
   "#ff7b54",
   "#8ac926",
@@ -83,12 +83,12 @@ function getRouteColor(
 }
 
 function getRouteRisk(route: RouteData, weather?: RouteWeather) {
-  if (route.disrupted) return { label: "HIGH RISK", tone: "red" };
+  if (route.disrupted) return { label: "High risk", tone: "red" };
   if (weather?.rainfall != null && weather.rainfall > 15) {
-    return { label: "WEATHER RISK", tone: "amber" };
+    return { label: "Weather risk", tone: "amber" };
   }
-  if (!weather?.available) return { label: "RISK UNKNOWN", tone: "muted" };
-  return { label: "LOW RISK", tone: "green" };
+  if (!weather?.available) return { label: "Risk unknown", tone: "muted" };
+  return { label: "Low risk", tone: "green" };
 }
 
 function getWeatherSummary(weather?: RouteWeather) {
@@ -201,9 +201,6 @@ function OpenStreetMap({
       map = L.map(mapNode.current, {
         zoomControl: false,
         preferCanvas: true,
-        zoomAnimation: false,
-        fadeAnimation: false,
-        markerZoomAnimation: false,
         ...(live
           ? {
               rotate: true,
@@ -231,25 +228,47 @@ function OpenStreetMap({
       const mapRoutes = (routingData.routes || []) as RouteData[];
       const routeOptions = {
         renderer: L.canvas(),
-        updateWhenZooming: false,
+        updateWhenZooming: true,
         interactive: false,
       };
       const routeLines = mapRoutes.map((route, index) => {
         const coordinates = route.coordinates.map(
           ([longitude, latitude]) => [latitude, longitude] as [number, number],
         );
-        return L.polyline(coordinates, {
+        const polyline = L.polyline(coordinates, {
           color: getRouteColor(index, route, recommendedRouteId),
-          weight: route.id === recommendedRouteId ? 5 : 4,
-          opacity: route.id === recommendedRouteId ? 1 : 0.75,
+          weight: route.id === recommendedRouteId ? 4 : 3,
+          opacity: 1,
           ...routeOptions,
-        }).addTo(map);
+        });
+
+        if (coordinates.length > 0) {
+          const midIndex = Math.floor(coordinates.length / 2);
+          const midPoint = coordinates[midIndex];
+          L.tooltip({ permanent: true, direction: "center", className: "osm-route-tooltip" })
+            .setLatLng(midPoint)
+            .setContent(route.label)
+            .addTo(map);
+        }
+
+        return polyline;
+      });
+      
+      // Render non-recommended routes first, then recommended, so recommended is always on top
+      routeLines.forEach((line, index) => {
+        if (mapRoutes[index].id !== recommendedRouteId) line.addTo(map);
+      });
+      routeLines.forEach((line, index) => {
+        if (mapRoutes[index].id === recommendedRouteId) line.addTo(map);
       });
       if (live) {
-        map.setView([origin.coordinates[1], origin.coordinates[0]], 10, {
+        const activeRoute = mapRoutes.find((r) => r.id === recommendedRouteId) || mapRoutes[0];
+        const coords = activeRoute?.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]) || [];
+        const startPos = coords[0] || [origin.coordinates[1], origin.coordinates[0]];
+        map.setView(startPos, 8, {
           animate: false,
         });
-        map.panBy([0, 150], { animate: false });
+        map.panBy([0, 100], { animate: false });
       } else {
         const comparisonBounds = routeLines[0]?.getBounds() || map.getBounds();
         routeLines
@@ -277,7 +296,7 @@ function OpenStreetMap({
           rotateWithView: false,
         })
           .addTo(map)
-          .bindTooltip(`START · ${origin.name}`, { permanent: false });
+          .bindTooltip(`START · ${origin.name || "Origin"}`, { permanent: true, direction: "top", offset: [0, -10], className: "osm-place-tooltip" });
       }
       L.marker([destination.coordinates[1], destination.coordinates[0]], {
         icon: endIcon,
@@ -285,8 +304,11 @@ function OpenStreetMap({
         rotateWithView: false,
       })
         .addTo(map)
-        .bindTooltip(live ? destination.name : `END · ${destination.name}`, {
-          permanent: false,
+        .bindTooltip(live ? destination.name || "Destination" : `END · ${destination.name || "Destination"}`, {
+          permanent: true,
+          direction: "top",
+          offset: [0, -10],
+          className: "osm-place-tooltip",
         });
       if (live) {
         const activeRoute = mapRoutes.find((r) => r.id === recommendedRouteId) || mapRoutes[0];
@@ -306,46 +328,10 @@ function OpenStreetMap({
           rotateWithView: false,
         }).addTo(map);
         
-        vehicleMarker.bindTooltip("NER-MED-102", { permanent: false });
+        vehicleMarker.bindTooltip("NER-MED-102", { permanent: true, direction: "right", offset: [20, 0], className: "osm-vehicle-tooltip" });
         
         if (coords.length > 1) {
-          const initialBearing = calculateBearing(coords[0], coords[1]);
-          if (typeof (map as any).setBearing === "function") {
-            (map as any).setBearing(initialBearing);
-          }
-          
-          let step = 0;
-          const totalSteps = coords.length;
-          const intervalTime = 300; // ms per step for a smooth navigation feel
-          
-          const timer = setInterval(() => {
-            if (cancelled) {
-              clearInterval(timer);
-              return;
-            }
-            
-            if (step < totalSteps) {
-              const currentPos = coords[step];
-              vehicleMarker.setLatLng(currentPos);
-              
-              // Keep map centered on the vehicle and slightly shifted to look ahead
-              map.setView(currentPos, 14, { animate: false });
-              map.panBy([0, 100], { animate: false });
-              
-              if (step < totalSteps - 1) {
-                const nextPos = coords[step + 1];
-                const bearing = calculateBearing(currentPos, nextPos);
-                if (typeof (map as any).setBearing === "function") {
-                  (map as any).setBearing(bearing);
-                }
-              }
-              
-              step++;
-            } else {
-              // Loop route animation
-              step = 0;
-            }
-          }, intervalTime);
+          // Map stays straight, not rotated
         }
       }
       mapRef.current = map;
@@ -396,109 +382,63 @@ function MapCanvas({
     />
   );
 
-  // return (
-  //   <div className={`map-canvas ${live ? "map-live" : ""}`}>
-  //     <div className="map-grid" />
-  //     <div className="region assam">ASSAM</div>
-  //     <div className="region nagaland">NAGALAND</div>
-  //     <div className="region manipur">MANIPUR</div>
-  //     <div className="region mizoram">MIZORAM</div>
-  //     <svg
-  //       className="routes"
-  //       viewBox="0 0 600 800"
-  //       preserveAspectRatio="none"
-  //       aria-hidden="true"
-  //     >
-  //       <path
-  //         className="route-alt"
-  //         d="M130 92 C177 168, 158 270, 222 337 S188 490, 270 650"
-  //       />
-  //       <path
-  //         className="route-main-glow"
-  //         d="M130 92 C199 148, 285 184, 327 280 S275 440, 382 548 S405 646, 470 702"
-  //       />
-  //       <path
-  //         className="route-main"
-  //         d="M130 92 C199 148, 285 184, 327 280 S275 440, 382 548 S405 646, 470 702"
-  //       />
-  //       <path
-  //         className="route-danger"
-  //         d="M130 92 C177 168, 158 270, 222 337 S188 490, 270 650"
-  //       />
-  //     </svg>
-  //     <div className="map-pin start">
-  //       <MapPin size={25} fill="currentColor" />
-  //     </div>
-  //     <div className="map-pin end">
-  //       <MapPin size={25} fill="currentColor" />
-  //     </div>
-  //     <div className="place-tag start-tag">Guwahati</div>
-  //     <div className="place-tag end-tag">Imphal</div>
-  //     <div className="road-tag nh27">NH-27</div>
-  //     <div className="road-tag nh37">NH-37</div>
-  //     <div className="hazard-pin">
-  //       <AlertTriangle size={15} />
-  //     </div>
-  //     {!live && (
-  //       <div className="map-callout route-callout">
-  //         <strong>Route B</strong>
-  //         <span>215 km · 6h 05m</span>
-  //         <em>LOW RISK</em>
-  //       </div>
-  //     )}
-  //     {!live && (
-  //       <div className="map-callout risk-callout">
-  //         <strong>High landslide risk</strong>
-  //         <span>Road ahead may be blocked</span>
-  //         <em>Avoid Route A</em>
-  //       </div>
-  //     )}
-  //     {live && (
-  //       <div className="vehicle-marker">
-  //         <Navigation size={18} fill="white" />
-  //       </div>
-  //     )}
-  //     <div className="map-scale">20 km</div>
-  //     <div className="map-controls">
-  //       <button aria-label="Zoom in">
-  //         <Plus size={20} />
-  //       </button>
-  //       <button aria-label="Zoom out">
-  //         <Minus size={20} />
-  //       </button>
-  //       <button aria-label="Recenter">
-  //         <Crosshair size={18} />
-  //       </button>
-  //       <button aria-label="Layers">
-  //         <Layers size={18} />
-  //       </button>
-  //     </div>
-  //   </div>
-  // );
 }
 
 function Header() {
+  const [showNotifications, setShowNotifications] = useState(false);
+
   return (
     <header className="topbar">
       <div className="brand-mark">
-        <Truck size={24} />
+        <Navigation size={20} />
       </div>
       <div className="brand">
-        <strong>NER SmartRoute AI</strong>
-        <span>Driver Navigation</span>
+        <strong>NER SmartRoute</strong>
+        <span>AI navigation</span>
       </div>
       <div className="network">
-        <span className="signal">⌁</span>
+        <span className="signal">●</span>
         <span>
           GPS <b>Strong</b>
         </span>
       </div>
-      <button className="icon-button notification" aria-label="Notifications">
-        <Bell size={22} />
-        <i>3</i>
-      </button>
+      <div className="notification-wrapper" style={{ position: "relative", marginLeft: "auto" }}>
+        <button 
+          className="icon-button notification" 
+          aria-label="Notifications"
+          onClick={() => setShowNotifications(!showNotifications)}
+        >
+          <Bell size={20} />
+          <i>3</i>
+        </button>
+        {showNotifications && (
+          <div className="notification-dropdown">
+            <div className="notif-item">
+              <AlertTriangle size={14} color="#e94238" style={{ marginTop: 2 }} />
+              <div>
+                <strong>Landslide Alert</strong>
+                <span>NH-37 blocked 42km ahead. Re-routing recommended.</span>
+              </div>
+            </div>
+            <div className="notif-item">
+              <Wind size={14} color="#f1af26" style={{ marginTop: 2 }} />
+              <div>
+                <strong>Weather Warning</strong>
+                <span>Heavy rain expected in 2 hours near Silchar.</span>
+              </div>
+            </div>
+            <div className="notif-item">
+              <Check size={14} color="#0bba61" style={{ marginTop: 2 }} />
+              <div>
+                <strong>System Update</strong>
+                <span>Offline maps for Assam region updated.</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       <button className="icon-button" aria-label="Menu">
-        <Menu size={23} />
+        <Menu size={21} />
       </button>
     </header>
   );
@@ -534,7 +474,7 @@ function WorkflowBar({
               <span className="workflow-number">
                 {complete ? <Check size={13} /> : number}
               </span>
-              <span>{label}</span>
+              <span className="workflow-label">{label}</span>
             </button>
             {index < steps.length - 1 && (
               <i
@@ -626,26 +566,26 @@ function Setup({
     <main className="setup-page">
       <div className="setup-copy">
         <div className="eyebrow">
-          <ShieldCheck size={15} /> ROUTE INTELLIGENCE
+          <ShieldCheck size={15} /> AI route planner
         </div>
         <h1>
-          Move critical cargo
+          Find the safer
           <br />
-          <span>with more certainty.</span>
+          <span>way there.</span>
         </h1>
         <p>
-          Tell us about your trip. NER SmartRoute checks weather, terrain and
-          road conditions to find the safer way through.
+          Enter your start, destination, cargo and vehicle. The AI compares
+          routes, weather and risk so you can leave with a clear plan.
         </p>
       </div>
       <section className="setup-panel">
         <div className="panel-heading">
           <div>
-            <span className="step-label">STEP 01 / TRIP DETAILS</span>
-            <h2>Plan your route</h2>
+            <span className="step-label">Trip details</span>
+            <h2>Plan your trip</h2>
           </div>
           <div className="secure">
-            <ShieldCheck size={14} /> DATA SECURE
+            <ShieldCheck size={14} /> Secure
           </div>
         </div>
         <div className="route-inputs">
@@ -668,7 +608,7 @@ function Setup({
                 type="button"
                 onClick={() => searchPlace(originQuery, "origin")}
               >
-                <MapPin size={14} />
+               {/* <MapPin size={14} /> */}
               </button>
             </div>
             {activeSearch === "origin" && suggestions.length > 0 && (
@@ -709,7 +649,7 @@ function Setup({
                 type="button"
                 onClick={() => searchPlace(destinationQuery, "destination")}
               >
-                <MapPin size={14} />
+                {/* <MapPin size={14} /> */}
               </button>
             </div>
             {activeSearch === "destination" && suggestions.length > 0 && (
@@ -762,11 +702,10 @@ function Setup({
           className="primary-action"
           onClick={() => onAnalyze({ origin, destination, cargo, vehicle })}
         >
-          ANALYZE ROUTE <ArrowRight size={18} />
+          Analyze route <ArrowRight size={18} />
         </button>
         <div className="data-note">
-          <Gauge size={16} /> Analyzing 12 live risk signals across the
-          Northeast
+          <Gauge size={16} /> Live weather and road risk across the Northeast
         </div>
       </section>
       <div className="setup-footer">
@@ -861,23 +800,23 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
       <div className="analysis-title">
         <div>
           <div className="eyebrow">
-            <Check size={15} /> ANALYSIS COMPLETE
+            <Check size={15} /> Analysis complete
           </div>
-          <h1>Safer route found.</h1>
+          <h1>Safer route found</h1>
           <p>
-            We compared safer routes for your {trip.cargo.toLowerCase()}{" "}
+            Compared available routes for your {trip.cargo.toLowerCase()}{" "}
             delivery.
           </p>
         </div>
-        <div className="score-badge">
+        {/* <div className="score-badge">
           <strong>86</strong>
-          <span>SAFETY SCORE</span>
-        </div>
+          <span>Safety score</span>
+        </div> */}
       </div>
       <div className="analysis-grid">
         <section className="map-panel">
           <div className="map-heading">
-            <span>ROUTE COMPARISON</span>
+            <span>Route comparison</span>
             <div>
               {routes.map((route, index) => (
                 <span className="legend" key={route.id}>
@@ -903,41 +842,18 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
             routes={routes}
             recommendedRouteId={selectedRouteId}
           />
-          {/* <div className="map-route-key" aria-label="Map route key">
-            <div className="map-key-title">ROUTE KEY</div>
-            <div className="map-key-item">
-              <i className="map-key-line recommended-line" />{" "}
-              <span>
-                <b>Route B</b> Recommended
-              </span>
-            </div>
-            <div className="map-key-item">
-              <i className="map-key-line blocked-line" />{" "}
-              <span>
-                <b>Route A</b> Blocked by disruption
-              </span>
-            </div>
-            <div className="map-key-endpoints">
-              <span>
-                <i className="key-dot start-dot" /> Start · {trip.origin.name}
-              </span>
-              <span>
-                <i className="key-dot end-dot" /> End · {trip.destination.name}
-              </span>
-            </div>
-          </div> */}
         </section>
         <section className="decision-panel">
           <div className="recommended-head">
             <div>
-              <span className="step-label">GROQ AI RECOMMENDATION</span>
+              <span className="step-label">AI recommendation</span>
               {recommendation.provider ? (
                 <h2>
                   {selectedRoute?.label || "Comparing routes"}{" "}
                   <span>· best overall</span>
                 </h2>
               ) : (
-                <h2>Analyzing routes...</h2>
+                <h2>Analyzing routes…</h2>
               )}
             </div>
             {recommendation.provider ? (
@@ -962,7 +878,7 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
             <p className="ai-reason">{recommendation.reason}</p>
           )}
           <div className="route-options">
-            <h3>Available routes · OSRM + IMD reports</h3>
+            <h3>Available routes</h3>
             {routes.map((route, index) => (
               <button
                 type="button"
@@ -999,7 +915,7 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
                     <Droplets size={12} />{" "}
                     {routeWeather[route.id]
                       ? getWeatherSummary(routeWeather[route.id])
-                      : "Loading IMD report..."}
+                      : "Loading weather…"}
                   </small>
                   <small
                     className={`route-risk ${getRouteRisk(route, routeWeather[route.id]).tone}`}
@@ -1012,11 +928,8 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
             ))}
           </div>
           <button className="primary-action" onClick={() => onLive(routes, selectedRouteId)}>
-            START NAVIGATION <Navigation size={17} />
+            Start navigation <Navigation size={17} />
           </button>
-          {/* <button className="secondary-action" onClick={onLive}>
-            <Navigation size={17} /> VIEW NAVIGATION
-          </button> */}
         </section>
       </div>
     </main>
@@ -1027,26 +940,30 @@ function Live({ trip, routes, selectedRouteId, onBack }: { trip: Trip; routes: R
   const [showEmergency, setShowEmergency] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const activeRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
 
   return (
     <main className={`live-page ${isFullscreen ? "live-fullscreen" : ""}`}>
       <div className="live-map-wrap">
         <MapCanvas live origin={trip.origin} destination={trip.destination} routes={routes} recommendedRouteId={selectedRouteId} />
         <div className="live-top">
-          <div>
+          <div className="live-heading">
             <span className="live-pill">
-              <i /> LIVE NAVIGATION
+              <i /> Live
             </span>
             <h1>
-              {trip.origin.name} <ArrowRight size={14} />{" "}
-              {trip.destination.name}
+              <span className="live-place">{trip.origin.name || "Start"}</span>
+              <ArrowRight size={14} />
+              <span className="live-place">
+                {trip.destination.name || "Destination"}
+              </span>
             </h1>
           </div>
-          <div className="eta-live">
-            <span>ARRIVAL IN</span>
+          {/* <div className="eta-live">
+            <span>Arrival</span>
             <strong>5h 42m</strong>
             <small>6:30 PM · 215 km</small>
-          </div>
+          </div> */}
         </div>
         <button
           className="map-fullscreen-button"
@@ -1056,14 +973,14 @@ function Live({ trip, routes, selectedRouteId, onBack }: { trip: Trip; routes: R
           }
         >
           {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-          <span>{isFullscreen ? "EXIT MAP" : "FULL SCREEN"}</span>
+          <span>{isFullscreen ? "Exit map" : "Full screen"}</span>
         </button>
 
         <div className="live-bottom">
           <div className="trip-chip">
             <Truck size={18} />
             <span>NER-MED-102</span>
-            <b>52 km/h</b>
+            <b>0 km/h</b>
           </div>
           <div className="bottom-actions">
             <button
@@ -1109,14 +1026,14 @@ function Live({ trip, routes, selectedRouteId, onBack }: { trip: Trip; routes: R
                   <div className="modal-icon emergency">
                     <Phone size={22} />
                   </div>
-                  <span className="step-label">EMERGENCY SUPPORT</span>
+                  <span className="step-label">Emergency support</span>
                   <h2>Need immediate help?</h2>
                   <p>
                     Connect with the NER logistics control room for route
                     assistance.
                   </p>
                   <button className="primary-action">
-                    <Phone size={17} /> CALL CONTROL ROOM
+                    <Phone size={17} /> Call control room
                   </button>
                 </>
               ) : (
@@ -1124,16 +1041,20 @@ function Live({ trip, routes, selectedRouteId, onBack }: { trip: Trip; routes: R
                   <div className="modal-icon">
                     <Route size={22} />
                   </div>
-                  <span className="step-label">ROUTE DETAILS</span>
-                  <h2>Route B · safer path</h2>
-                  <p>215 km · 5h 42m remaining · Low disruption risk</p>
+                  <span className="step-label">Route details</span>
+                  <h2>{activeRoute?.label || "Safer path"}</h2>
+                  <p>
+                    {activeRoute ? Math.round(activeRoute.distance / 1000) : "--"} km ·{" "}
+                    {activeRoute ? Math.floor(activeRoute.duration / 3600) : "--"}h{" "}
+                    {activeRoute ? Math.round((activeRoute.duration % 3600) / 60) : "--"}m remaining
+                  </p>
                   <div className="modal-detail">
                     <span>Next hazard</span>
-                    <strong>Heavy rainfall area · 28 km</strong>
+                    <strong>{activeRoute?.disrupted ? "Landslide zone" : "None detected"}</strong>
                   </div>
                   <div className="modal-detail">
                     <span>Arrival estimate</span>
-                    <strong>6:30 PM</strong>
+                    <strong>{new Date(Date.now() + (activeRoute?.duration || 0) * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</strong>
                   </div>
                 </>
               )}
