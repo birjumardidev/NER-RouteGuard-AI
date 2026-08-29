@@ -49,6 +49,7 @@ type RouteData = {
   id: string;
   label: string;
   disrupted?: boolean;
+  hazard?: { label: string; tone: "amber" | "red" };
   distance: number;
   duration: number;
   coordinates: [number, number][];
@@ -87,16 +88,17 @@ function getRouteColor(
 
 function getRouteRisk(route: RouteData, weather?: RouteWeather) {
   if (route.disrupted || weather?.floodLevel === "Extreme Danger")
-    return { label: "High risk", tone: "red" };
+    return { label: "Route blocked - choose another", tone: "red" };
   if (weather?.floodLevel === "Danger")
-    return { label: "Flood warning", tone: "red" };
+    return { label: "Flood danger - avoid this route", tone: "red" };
   if (weather?.floodLevel === "Warning")
-    return { label: "Flood watch", tone: "amber" };
+    return { label: "Flood warning - drive carefully", tone: "amber" };
   if (weather?.rainfall != null && weather.rainfall > 15) {
-    return { label: "Weather risk", tone: "amber" };
+    return { label: "Heavy rain - slow down", tone: "amber" };
   }
-  if (!weather?.available) return { label: "Risk unknown", tone: "muted" };
-  return { label: "Low risk", tone: "green" };
+  if (!weather?.available)
+    return { label: "Weather data unavailable", tone: "muted" };
+  return { label: "Clear route - safe to travel", tone: "green" };
 }
 
 function getWeatherSummary(weather?: RouteWeather) {
@@ -105,7 +107,12 @@ function getWeatherSummary(weather?: RouteWeather) {
     weather.temperature != null ? `${Math.round(weather.temperature)}°C` : "",
     weather.humidity != null ? `${Math.round(weather.humidity)}% humidity` : "",
     weather.floodLevel && weather.floodLevel !== "Normal"
-      ? `Flood Alert: ${weather.floodLevel}`
+      ? weather.floodLevel === "Warning"
+        ? "Flood warning"
+        : weather.floodLevel === "Danger" ||
+            weather.floodLevel === "Extreme Danger"
+          ? "Flood danger"
+          : "Flood information"
       : "",
   ].filter(Boolean);
   return [weather.description, ...details].join(" · ");
@@ -140,7 +147,10 @@ function OpenStreetMap({
     destination.coordinates.join(","),
     recommendedRouteId || "",
     routes
-      ?.map((route) => `${route.id}:${route.disrupted ? "disrupted" : "clear"}`)
+      ?.map(
+        (route) =>
+          `${route.id}:${route.disrupted ? "disrupted" : "clear"}:${route.hazard?.label || ""}`,
+      )
       .join(",") || "",
   ].join("|");
 
@@ -253,6 +263,13 @@ function OpenStreetMap({
         iconSize: [24, 24],
         iconAnchor: [12, 12],
       });
+      const getHazardIcon = (tone: "amber" | "red") =>
+        L.divIcon({
+          className: `osm-hazard-marker ${tone}`,
+          html: "<span>!</span>",
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        });
       if (!live) {
         L.marker([origin.coordinates[1], origin.coordinates[0]], {
           icon: startIcon,
@@ -282,6 +299,30 @@ function OpenStreetMap({
             className: "osm-place-tooltip",
           },
         );
+      if (live) {
+        mapRoutes.forEach((route) => {
+          if (!route.hazard && !route.disrupted) return;
+          const routeCoordinates = route.coordinates;
+          const midpoint =
+            routeCoordinates[Math.floor(routeCoordinates.length / 2)];
+          if (!midpoint) return;
+          const hazard = route.hazard || {
+            label: "Route disrupted",
+            tone: "red" as const,
+          };
+          L.marker([midpoint[1], midpoint[0]], {
+            icon: getHazardIcon(hazard.tone),
+            zIndexOffset: 800,
+          })
+            .addTo(map)
+            .bindTooltip(`${route.label} · ${hazard.label}`, {
+              permanent: true,
+              direction: "top",
+              offset: [0, -14],
+              className: `osm-hazard-tooltip ${hazard.tone}`,
+            });
+        });
+      }
       if (live) {
         const activeRoute =
           mapRoutes.find((r) => r.id === recommendedRouteId) || mapRoutes[0];
@@ -878,14 +919,19 @@ function Analysis({
               <div className="ai-loading-bar">
                 <div className="ai-loading-progress" />
               </div>
-              <p className="ai-reason loading-text">{recommendation.reason}</p>
+              <p className="ai-reason loading-text">
+                {/* {recommendation.reason} */}
+              </p>
               <div className="skeleton-lines">
                 <div className="skeleton-line" />
                 <div className="skeleton-line short" />
               </div>
             </div>
           ) : (
-            <p className="ai-reason">{recommendation.reason}</p>
+            <p className="ai-reason">
+              {/* {recommendation.reason} */}
+              Ai recommendation kl try krna , aaj limit khtm kr diye 🥲
+            </p>
           )}
           <div className="route-options">
             <h3>Available routes</h3>
@@ -973,14 +1019,14 @@ function Analysis({
                         gap: "2px",
                       }}
                     >
-                      <strong>Warning</strong>
+                      <strong>Route alert</strong>
                       <span>
                         {route.disrupted
                           ? "Route disrupted due to hazards. "
                           : ""}
                         {routeWeather[route.id]?.floodLevel &&
                         routeWeather[route.id]?.floodLevel !== "Normal"
-                          ? `Flood Alert: ${routeWeather[route.id].floodLevel}. `
+                          ? `${getRouteRisk(route, routeWeather[route.id]).label}. `
                           : ""}
                         {routeWeather[route.id]?.rainfall &&
                         routeWeather[route.id].rainfall! > 15
@@ -1018,7 +1064,7 @@ function Analysis({
                           gap: "2px",
                         }}
                       >
-                        <strong>Info</strong>
+                        <strong>Route clear</strong>
                         <span>
                           Conditions are clear. Route is safe for travel.
                         </span>
@@ -1030,7 +1076,26 @@ function Analysis({
           </div>
           <button
             className="primary-action"
-            onClick={() => onLive(routes, selectedRouteId)}
+            onClick={() =>
+              onLive(
+                routes.map((route) => {
+                  const risk = getRouteRisk(route, routeWeather[route.id]);
+                  return {
+                    ...route,
+                    hazard:
+                      route.disrupted ||
+                      risk.tone === "red" ||
+                      risk.tone === "amber"
+                        ? {
+                            label: risk.label,
+                            tone: risk.tone as "amber" | "red",
+                          }
+                        : undefined,
+                  };
+                }),
+                selectedRouteId,
+              )
+            }
           >
             Start navigation <Navigation size={17} />
           </button>

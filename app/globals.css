@@ -198,7 +198,7 @@ button {
 
 .setup-copy h1 span {
   color: #7a828c;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .setup-copy p {
@@ -633,6 +633,27 @@ label > span,
 
 .osm-end-marker::before {
   background: var(--red);
+}
+
+.osm-hazard-marker {
+  display: grid;
+  place-items: center;
+  width: 30px !important;
+  height: 30px !important;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: var(--amber);
+  color: white;
+  font: 700 17px/1 "Plus Jakarta Sans";
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.osm-hazard-marker.red {
+  background: var(--red);
+}
+
+.osm-hazard-marker span {
+  display: block;
 }
 
 .osm-start-marker span,
@@ -1716,6 +1737,18 @@ label > span,
   border: none;
   font-weight: 700;
   font-size: 10px;
+}
+
+.osm-hazard-tooltip {
+  font-weight: 700;
+}
+
+.osm-hazard-tooltip.amber {
+  color: var(--amber);
+}
+
+.osm-hazard-tooltip.red {
+  color: var(--red);
 }
 .leaflet-tooltip-top::before,
 .leaflet-tooltip-bottom::before,
