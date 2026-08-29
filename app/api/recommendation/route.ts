@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           // Switches to a standard non-reasoning chat model from your API list
-          model: "groq/compound", 
+          model: "groq/compound-mini", 
           temperature: 0.1,
           max_tokens: 200,
           response_format: { type: "json_object" },
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
             {
               role: "system",
               content:
-                'Compare driving routes for a logistics trip. You must respond ONLY with a valid JSON object containing exactly two keys: "recommendedRouteId" and "reason". Do not include markdown formatting or any other text.',
+                'Compare driving routes for a logistics trip. You must respond ONLY with a valid JSON object containing exactly two keys: "recommendedRouteId" and "reason" (use unit like 2km and 4h 12m when providing suggestion in reason). Do not include markdown formatting or any other text.',
             },
             {
               role: "user",

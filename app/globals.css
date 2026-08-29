@@ -5,8 +5,8 @@
   --bg: #f4f1ea;
   --bg-deep: #ece8df;
   --ink: #16181d;
-  --muted: #5e6670;
-  --line: #949b93;
+  --muted: #85898e;
+  --line: #b1c6ae;
   --panel: #fffdf8;
   --panel-2: #faf7f1;
   --accent: #0d6a4f;
@@ -645,13 +645,13 @@ label > span,
 .osm-vehicle-marker {
   display: grid;
   place-items: center !important;
-  width: 44px !important;
-  height: 44px !important;
+  width: 32px !important;
+  height: 32px !important;
   border: 3px solid white;
   border-radius: 50%;
   background: var(--blue);
   color: white;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1;
   box-shadow:
     0 0 0 6px rgba(129, 162, 246, 0.482),
@@ -1580,7 +1580,7 @@ label > span,
   }
 
   .map-panel {
-    min-height: 630px;
+    min-height: 700px;
     padding: 16px;
   }
 

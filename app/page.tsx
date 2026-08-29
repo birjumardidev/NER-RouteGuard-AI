@@ -100,29 +100,29 @@ function getWeatherSummary(weather?: RouteWeather) {
   return [weather.description, ...details].join(" · ");
 }
 
-const hazards = [
-  {
-    icon: AlertTriangle,
-    label: "Landslide prone zone",
-    distance: "18 km",
-    level: "Medium",
-    tone: "amber",
-  },
-  {
-    icon: Wind,
-    label: "Heavy rainfall area",
-    distance: "28 km",
-    level: "High",
-    tone: "red",
-  },
-  {
-    icon: Route,
-    label: "Narrow bridge",
-    distance: "42 km",
-    level: "Low",
-    tone: "blue",
-  },
-];
+// const hazards = [
+//   {
+//     icon: AlertTriangle,
+//     label: "Landslide prone zone",
+//     distance: "18 km",
+//     level: "Medium",
+//     tone: "amber",
+//   },
+//   {
+//     icon: Wind,
+//     label: "Heavy rainfall area",
+//     distance: "28 km",
+//     level: "High",
+//     tone: "red",
+//   },
+//   {
+//     icon: Route,
+//     label: "Narrow bridge",
+//     distance: "42 km",
+//     level: "Low",
+//     tone: "blue",
+//   },
+// ];
 
 const guwahati: [number, number] = [91.7362, 26.1445];
 const imphal: [number, number] = [93.9368, 24.817];
@@ -131,37 +131,21 @@ const defaultDestination: Place = {
   name: "",
   coordinates: imphal,
 };
-// const routeCoordinates: [number, number][] = [
-//   guwahati,
-//   [92.05, 25.98],
-//   [92.42, 25.72],
-//   [92.82, 25.42],
-//   [93.2, 25.13],
-//   imphal,
-// ];
-// const blockedRouteCoordinates: [number, number][] = [
-//   guwahati,
-//   [91.95, 26.02],
-//   [92.02, 25.62],
-//   [92.18, 25.18],
-//   [92.28, 24.72],
-//   [92.58, 24.45],
-//   imphal,
-// ];
 
-function calculateBearing(start: [number, number], end: [number, number]): number {
-  const lat1 = (start[0] * Math.PI) / 180;
-  const lon1 = (start[1] * Math.PI) / 180;
-  const lat2 = (end[0] * Math.PI) / 180;
-  const lon2 = (end[1] * Math.PI) / 180;
 
-  const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) -
-    Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
-  const bearing = (Math.atan2(y, x) * 180) / Math.PI;
-  return (bearing + 360) % 360;
-}
+// function calculateBearing(start: [number, number], end: [number, number]): number {
+//   const lat1 = (start[0] * Math.PI) / 180;
+//   const lon1 = (start[1] * Math.PI) / 180;
+//   const lat2 = (end[0] * Math.PI) / 180;
+//   const lon2 = (end[1] * Math.PI) / 180;
+
+//   const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+//   const x =
+//     Math.cos(lat1) * Math.sin(lat2) -
+//     Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+//   const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+//   return (bearing + 360) % 360;
+// }
 
 function OpenStreetMap({
   live,
@@ -201,6 +185,7 @@ function OpenStreetMap({
       map = L.map(mapNode.current, {
         zoomControl: false,
         preferCanvas: true,
+        markerZoomAnimation: false,
         ...(live
           ? {
               rotate: true,
@@ -209,9 +194,9 @@ function OpenStreetMap({
               rotateControl: { closeOnZeroBearing: true },
             }
           : {}),
-      } as Parameters<typeof L.map>[1]).setView([25.5, 92.8], 6.5);
+      } as Parameters<typeof L.map>[1]).setView([25.5, 92.8], 7.5);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
+        maxZoom: 26,
         // attribution:
         //   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(map);
@@ -228,7 +213,7 @@ function OpenStreetMap({
       const mapRoutes = (routingData.routes || []) as RouteData[];
       const routeOptions = {
         renderer: L.canvas(),
-        updateWhenZooming: true,
+        updateWhenZooming: false,
         interactive: false,
       };
       const routeLines = mapRoutes.map((route, index) => {
@@ -265,10 +250,10 @@ function OpenStreetMap({
         const activeRoute = mapRoutes.find((r) => r.id === recommendedRouteId) || mapRoutes[0];
         const coords = activeRoute?.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]) || [];
         const startPos = coords[0] || [origin.coordinates[1], origin.coordinates[0]];
-        map.setView(startPos, 8, {
+        map.setView(startPos, 12, {
           animate: false,
         });
-        map.panBy([0, 100], { animate: false });
+        map.panBy([100, 0], { animate: false });
       } else {
         const comparisonBounds = routeLines[0]?.getBounds() || map.getBounds();
         routeLines
@@ -316,8 +301,8 @@ function OpenStreetMap({
         
         const vehicle = L.divIcon({
           className: "osm-vehicle-marker",
-          html: "&#9650;",
-          iconSize: [52, 52],
+          // html: "&#9650;",
+          iconSize: [32, 32],
           iconAnchor: [26, 26],
         });
         
@@ -325,7 +310,7 @@ function OpenStreetMap({
         const vehicleMarker = L.marker(startPos, {
           icon: vehicle,
           zIndexOffset: 1000,
-          rotateWithView: false,
+          rotateWithView: true,
         }).addTo(map);
         
         vehicleMarker.bindTooltip("NER-MED-102", { permanent: true, direction: "right", offset: [20, 0], className: "osm-vehicle-tooltip" });
@@ -339,7 +324,7 @@ function OpenStreetMap({
         map.invalidateSize({ animate: false }),
       );
       resizeObserver.observe(mapNode.current);
-      map.on("zoomend rotate", () => map.invalidateSize({ animate: false }));
+      // map.on("zoomend rotate", () => map.invalidateSize({ animate: false }));
     });
 
     return () => {
