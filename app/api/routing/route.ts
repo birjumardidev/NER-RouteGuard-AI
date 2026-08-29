@@ -24,6 +24,22 @@ export async function GET(request: Request) {
   const buildUrl = (coordinates: string) =>
     `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true&alternatives=true`;
 
+  const hasUsableGeometry = (route: {
+    geometry?: { coordinates?: [number, number][] };
+  }) => {
+    const coordinates = route.geometry?.coordinates;
+    return (
+      Array.isArray(coordinates) &&
+      coordinates.length >= 2 &&
+      coordinates.every(
+        (coordinate) =>
+          Array.isArray(coordinate) &&
+          coordinate.length >= 2 &&
+          coordinate.every(Number.isFinite),
+      )
+    );
+  };
+
   const mapRoute = (
     route: {
       distance?: number;
@@ -71,42 +87,11 @@ export async function GET(request: Request) {
     });
     if (!response.ok) throw new Error(`OSRM returned ${response.status}`);
     const data = await response.json();
-    const osrmRoutes = Array.isArray(data.routes) ? data.routes : [];
+    const osrmRoutes = Array.isArray(data.routes)
+      ? data.routes.filter(hasUsableGeometry)
+      : [];
     const routeCandidates = [...osrmRoutes];
-
-    if (routeCandidates.length < 2) {
-      const midpointLongitude = (originLongitude + destinationLongitude) / 2;
-      const midpointLatitude = (originLatitude + destinationLatitude) / 2;
-      const longitudeDelta = destinationLongitude - originLongitude;
-      const latitudeDelta = destinationLatitude - originLatitude;
-      const length = Math.hypot(longitudeDelta, latitudeDelta) || 1;
-      const offset = Math.min(Math.max(length * 0.12, 0.15), 0.6);
-      const perpendicular = [
-        (midpointLongitude - (latitudeDelta / length) * offset).toFixed(5),
-        (midpointLatitude + (longitudeDelta / length) * offset).toFixed(5),
-      ];
-      const alternateUrl = buildUrl(
-        `${origin};${perpendicular.join(",")};${destination}`,
-      );
-      const alternateResponse = await fetch(alternateUrl, {
-        cache: "no-store",
-      });
-      if (alternateResponse.ok) {
-        const alternateData = await alternateResponse.json();
-        const alternateRoute = Array.isArray(alternateData.routes)
-          ? alternateData.routes[0]
-          : undefined;
-        if (
-          alternateRoute &&
-          (osrmRoutes.length === 0 ||
-            Math.abs(alternateRoute.distance - osrmRoutes[0].distance) >
-              osrmRoutes[0].distance * 0.02)
-        ) {
-          routeCandidates.push(alternateRoute);
-        }
-      }
-    }
-    const fallback = [
+    const fallback: [number, number][] = [
       [originLongitude, originLatitude],
       [destinationLongitude, destinationLatitude],
     ];
@@ -115,10 +100,11 @@ export async function GET(request: Request) {
       const mappedRoute = mapRoute(route, index);
       return {
         ...mappedRoute,
-        coordinates:
-          mappedRoute.coordinates.length > 1
-            ? mappedRoute.coordinates
-            : fallback,
+        coordinates: [
+          [originLongitude, originLatitude],
+          ...mappedRoute.coordinates.slice(1, -1),
+          [destinationLongitude, destinationLatitude],
+        ] as [number, number][],
       };
     });
 
