@@ -891,6 +891,7 @@ label > span,
   height: 10px;
   flex: 0 0 auto;
   border-radius: 50%;
+  margin-right: 6px !important;
 }
 
 .route-option strong {

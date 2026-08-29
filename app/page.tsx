@@ -100,30 +100,6 @@ function getWeatherSummary(weather?: RouteWeather) {
   return [weather.description, ...details].join(" · ");
 }
 
-// const hazards = [
-//   {
-//     icon: AlertTriangle,
-//     label: "Landslide prone zone",
-//     distance: "18 km",
-//     level: "Medium",
-//     tone: "amber",
-//   },
-//   {
-//     icon: Wind,
-//     label: "Heavy rainfall area",
-//     distance: "28 km",
-//     level: "High",
-//     tone: "red",
-//   },
-//   {
-//     icon: Route,
-//     label: "Narrow bridge",
-//     distance: "42 km",
-//     level: "Low",
-//     tone: "blue",
-//   },
-// ];
-
 const guwahati: [number, number] = [91.7362, 26.1445];
 const imphal: [number, number] = [93.9368, 24.817];
 const defaultOrigin: Place = { name: "", coordinates: guwahati };
@@ -133,19 +109,6 @@ const defaultDestination: Place = {
 };
 
 
-// function calculateBearing(start: [number, number], end: [number, number]): number {
-//   const lat1 = (start[0] * Math.PI) / 180;
-//   const lon1 = (start[1] * Math.PI) / 180;
-//   const lat2 = (end[0] * Math.PI) / 180;
-//   const lon2 = (end[1] * Math.PI) / 180;
-
-//   const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
-//   const x =
-//     Math.cos(lat1) * Math.sin(lat2) -
-//     Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
-//   const bearing = (Math.atan2(y, x) * 180) / Math.PI;
-//   return (bearing + 360) % 360;
-// }
 
 function OpenStreetMap({
   live,
@@ -250,7 +213,7 @@ function OpenStreetMap({
         const activeRoute = mapRoutes.find((r) => r.id === recommendedRouteId) || mapRoutes[0];
         const coords = activeRoute?.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]) || [];
         const startPos = coords[0] || [origin.coordinates[1], origin.coordinates[0]];
-        map.setView(startPos, 12, {
+        map.setView(startPos, 10, {
           animate: false,
         });
         map.panBy([100, 0], { animate: false });
@@ -693,7 +656,7 @@ function Setup({
           <Gauge size={16} /> Live weather and road risk across the Northeast
         </div>
       </section>
-      <div className="setup-footer">
+      {/* <div className="setup-footer">
         <span>
           Powered by <b>OpenStreetMap</b>
         </span>
@@ -701,7 +664,7 @@ function Setup({
           <span className="dot-live" /> Live hazard data
         </span>
         <span>v2.4.0</span>
-      </div>
+      </div> */}
     </main>
   );
 }
@@ -785,9 +748,9 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
       <div className="analysis-title">
         <div>
           <div className="eyebrow">
-            <Check size={15} /> Analysis complete
+            <Check size={15} />Route Analysis
           </div>
-          <h1>Safer route found</h1>
+          <h1>Safer Route Found</h1>
           <p>
             Compared available routes for your {trip.cargo.toLowerCase()}{" "}
             delivery.

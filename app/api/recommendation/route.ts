@@ -70,7 +70,7 @@ export async function POST(request: Request) {
             {
               role: "system",
               content:
-                'Compare driving routes for a logistics trip. You must respond ONLY with a valid JSON object containing exactly two keys: "recommendedRouteId" and "reason" (use unit like 2km and 4h 12m when providing suggestion in reason). Do not include markdown formatting or any other text.',
+                'Compare driving routes for a logistics trip. You must respond ONLY with a valid JSON object containing exactly two keys: "recommendedRouteId" and "reason" (do not use numbers in reason). Do not include markdown formatting or any other text.',
             },
             {
               role: "user",
