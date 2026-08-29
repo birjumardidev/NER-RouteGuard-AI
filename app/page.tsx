@@ -29,6 +29,7 @@ import {
   Truck,
   UserRound,
   Minus,
+  Waves,
   Wind,
   X,
 } from "lucide-react";
@@ -60,10 +61,12 @@ type RouteWeather = {
   temperature: number | null;
   humidity: number | null;
   rainfall: number | null;
+  floodLevel?: string;
+  waterLevelTrend?: string;
 };
 
 const routeColors = [
-  "#3489dd", 
+  "#3489dd",
   "#c65cf2",
   "#f1af26",
   "#57c7d4",
@@ -83,7 +86,12 @@ function getRouteColor(
 }
 
 function getRouteRisk(route: RouteData, weather?: RouteWeather) {
-  if (route.disrupted) return { label: "High risk", tone: "red" };
+  if (route.disrupted || weather?.floodLevel === "Extreme Danger")
+    return { label: "High risk", tone: "red" };
+  if (weather?.floodLevel === "Danger")
+    return { label: "Flood warning", tone: "red" };
+  if (weather?.floodLevel === "Warning")
+    return { label: "Flood watch", tone: "amber" };
   if (weather?.rainfall != null && weather.rainfall > 15) {
     return { label: "Weather risk", tone: "amber" };
   }
@@ -96,6 +104,9 @@ function getWeatherSummary(weather?: RouteWeather) {
   const details = [
     weather.temperature != null ? `${Math.round(weather.temperature)}°C` : "",
     weather.humidity != null ? `${Math.round(weather.humidity)}% humidity` : "",
+    weather.floodLevel && weather.floodLevel !== "Normal"
+      ? `Flood Alert: ${weather.floodLevel}`
+      : "",
   ].filter(Boolean);
   return [weather.description, ...details].join(" · ");
 }
@@ -107,8 +118,6 @@ const defaultDestination: Place = {
   name: "",
   coordinates: imphal,
 };
-
-
 
 function OpenStreetMap({
   live,
@@ -143,20 +152,17 @@ function OpenStreetMap({
     let resizeObserver: ResizeObserver | undefined;
     import("leaflet").then(async (leaflet) => {
       if (cancelled || !mapNode.current) return;
-      if (live) await import("leaflet-rotate");
       const L = leaflet.default;
+      const isTouchDevice = window.matchMedia(
+        "(hover: none), (pointer: coarse)",
+      ).matches;
       map = L.map(mapNode.current, {
         zoomControl: false,
-        preferCanvas: true,
-        markerZoomAnimation: false,
-        ...(live
-          ? {
-              rotate: true,
-              touchRotate: true,
-              touchGestures: true,
-              rotateControl: { closeOnZeroBearing: true },
-            }
-          : {}),
+        preferCanvas: false,
+        markerZoomAnimation: !isTouchDevice,
+        zoomAnimation: !isTouchDevice,
+        fadeAnimation: !isTouchDevice,
+        trackResize: true,
       } as Parameters<typeof L.map>[1]).setView([25.5, 92.8], 7.5);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 26,
@@ -175,8 +181,7 @@ function OpenStreetMap({
       if (cancelled) return;
       const mapRoutes = (routingData.routes || []) as RouteData[];
       const routeOptions = {
-        renderer: L.canvas(),
-        updateWhenZooming: false,
+        renderer: L.svg(),
         interactive: false,
       };
       const routeLines = mapRoutes.map((route, index) => {
@@ -193,7 +198,11 @@ function OpenStreetMap({
         if (coordinates.length > 0) {
           const midIndex = Math.floor(coordinates.length / 2);
           const midPoint = coordinates[midIndex];
-          L.tooltip({ permanent: true, direction: "center", className: "osm-route-tooltip" })
+          L.tooltip({
+            permanent: true,
+            direction: "center",
+            className: "osm-route-tooltip",
+          })
             .setLatLng(midPoint)
             .setContent(route.label)
             .addTo(map);
@@ -201,7 +210,7 @@ function OpenStreetMap({
 
         return polyline;
       });
-      
+
       // Render non-recommended routes first, then recommended, so recommended is always on top
       routeLines.forEach((line, index) => {
         if (mapRoutes[index].id !== recommendedRouteId) line.addTo(map);
@@ -210,9 +219,16 @@ function OpenStreetMap({
         if (mapRoutes[index].id === recommendedRouteId) line.addTo(map);
       });
       if (live) {
-        const activeRoute = mapRoutes.find((r) => r.id === recommendedRouteId) || mapRoutes[0];
-        const coords = activeRoute?.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]) || [];
-        const startPos = coords[0] || [origin.coordinates[1], origin.coordinates[0]];
+        const activeRoute =
+          mapRoutes.find((r) => r.id === recommendedRouteId) || mapRoutes[0];
+        const coords =
+          activeRoute?.coordinates.map(
+            ([lon, lat]) => [lat, lon] as [number, number],
+          ) || [];
+        const startPos = coords[0] || [
+          origin.coordinates[1],
+          origin.coordinates[0],
+        ];
         map.setView(startPos, 10, {
           animate: false,
         });
@@ -244,7 +260,12 @@ function OpenStreetMap({
           rotateWithView: false,
         })
           .addTo(map)
-          .bindTooltip(`START · ${origin.name || "Origin"}`, { permanent: true, direction: "top", offset: [0, -10], className: "osm-place-tooltip" });
+          .bindTooltip(`START · ${origin.name || "Origin"}`, {
+            permanent: true,
+            direction: "top",
+            offset: [0, -10],
+            className: "osm-place-tooltip",
+          });
       }
       L.marker([destination.coordinates[1], destination.coordinates[0]], {
         icon: endIcon,
@@ -252,32 +273,49 @@ function OpenStreetMap({
         rotateWithView: false,
       })
         .addTo(map)
-        .bindTooltip(live ? destination.name || "Destination" : `END · ${destination.name || "Destination"}`, {
-          permanent: true,
-          direction: "top",
-          offset: [0, -10],
-          className: "osm-place-tooltip",
-        });
+        .bindTooltip(
+          live
+            ? destination.name || "Destination"
+            : `END · ${destination.name || "Destination"}`,
+          {
+            permanent: true,
+            direction: "top",
+            offset: [0, -10],
+            className: "osm-place-tooltip",
+          },
+        );
       if (live) {
-        const activeRoute = mapRoutes.find((r) => r.id === recommendedRouteId) || mapRoutes[0];
-        const coords = activeRoute?.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]) || [];
-        
+        const activeRoute =
+          mapRoutes.find((r) => r.id === recommendedRouteId) || mapRoutes[0];
+        const coords =
+          activeRoute?.coordinates.map(
+            ([lon, lat]) => [lat, lon] as [number, number],
+          ) || [];
+
         const vehicle = L.divIcon({
           className: "osm-vehicle-marker",
           // html: "&#9650;",
           iconSize: [32, 32],
           iconAnchor: [26, 26],
         });
-        
-        const startPos = coords[0] || [origin.coordinates[1], origin.coordinates[0]];
+
+        const startPos = coords[0] || [
+          origin.coordinates[1],
+          origin.coordinates[0],
+        ];
         const vehicleMarker = L.marker(startPos, {
           icon: vehicle,
           zIndexOffset: 1000,
           rotateWithView: true,
         }).addTo(map);
-        
-        vehicleMarker.bindTooltip("NER-MED-102", { permanent: true, direction: "right", offset: [20, 0], className: "osm-vehicle-tooltip" });
-        
+
+        vehicleMarker.bindTooltip("NER-MED-102", {
+          permanent: true,
+          direction: "right",
+          offset: [20, 0],
+          className: "osm-vehicle-tooltip",
+        });
+
         if (coords.length > 1) {
           // Map stays straight, not rotated
         }
@@ -329,7 +367,6 @@ function MapCanvas({
       recommendedRouteId={recommendedRouteId}
     />
   );
-
 }
 
 function Header() {
@@ -350,9 +387,12 @@ function Header() {
           GPS <b>Strong</b>
         </span>
       </div>
-      <div className="notification-wrapper" style={{ position: "relative", marginLeft: "auto" }}>
-        <button 
-          className="icon-button notification" 
+      <div
+        className="notification-wrapper"
+        style={{ position: "relative", marginLeft: "auto" }}
+      >
+        <button
+          className="icon-button notification"
           aria-label="Notifications"
           onClick={() => setShowNotifications(!showNotifications)}
         >
@@ -362,7 +402,11 @@ function Header() {
         {showNotifications && (
           <div className="notification-dropdown">
             <div className="notif-item">
-              <AlertTriangle size={14} color="#e94238" style={{ marginTop: 2 }} />
+              <AlertTriangle
+                size={14}
+                color="#e94238"
+                style={{ marginTop: 2 }}
+              />
               <div>
                 <strong>Landslide Alert</strong>
                 <span>NH-37 blocked 42km ahead. Re-routing recommended.</span>
@@ -556,7 +600,7 @@ function Setup({
                 type="button"
                 onClick={() => searchPlace(originQuery, "origin")}
               >
-               {/* <MapPin size={14} /> */}
+                {/* <MapPin size={14} /> */}
               </button>
             </div>
             {activeSearch === "origin" && suggestions.length > 0 && (
@@ -669,7 +713,13 @@ function Setup({
   );
 }
 
-function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], selectedRouteId: string) => void }) {
+function Analysis({
+  trip,
+  onLive,
+}: {
+  trip: Trip;
+  onLive: (routes: RouteData[], selectedRouteId: string) => void;
+}) {
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [routeWeather, setRouteWeather] = useState<
     Record<string, RouteWeather>
@@ -695,13 +745,23 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
           const midpoint =
             route.coordinates[Math.floor(route.coordinates.length / 2)] ||
             trip.origin.coordinates;
-          const weatherResponse = await fetch(
-            `/api/weather?lat=${midpoint[1]}&lon=${midpoint[0]}`,
-          );
-          return [
-            route.id,
-            (await weatherResponse.json()) as RouteWeather,
-          ] as const;
+
+          const [weatherRes, floodRes] = await Promise.all([
+            fetch(`/api/weather?lat=${midpoint[1]}&lon=${midpoint[0]}`),
+            fetch(`/api/flood`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ coordinates: route.coordinates }),
+            }),
+          ]);
+
+          const weather = (await weatherRes.json()) as RouteWeather;
+          const flood = await floodRes.json();
+
+          weather.floodLevel = flood.level;
+          weather.waterLevelTrend = flood.trend;
+
+          return [route.id, weather] as const;
         }),
       );
       if (cancelled) return;
@@ -710,7 +770,11 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          routes: availableRoutes,
+          routes: availableRoutes.map((r: RouteData) => ({
+            ...r,
+            cwcFloodLevel: weatherEntries.find((e) => e[0] === r.id)?.[1]
+              .floodLevel,
+          })),
           cargo: trip.cargo,
           vehicle: trip.vehicle,
         }),
@@ -748,7 +812,8 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
       <div className="analysis-title">
         <div>
           <div className="eyebrow">
-            <Check size={15} />Route Analysis
+            <Check size={15} />
+            Route Analysis
           </div>
           <h1>Safer Route Found</h1>
           <p>
@@ -810,7 +875,7 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
               <div className="ai-loader-pulse" />
             )}
           </div>
-          
+
           {!recommendation.provider ? (
             <div className="ai-loading-container">
               <div className="ai-loading-bar">
@@ -872,10 +937,104 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
                     {getRouteRisk(route, routeWeather[route.id]).label}
                   </small>
                 </span>
+                {(route.disrupted ||
+                  (routeWeather[route.id] &&
+                    getRouteRisk(route, routeWeather[route.id]).tone !==
+                      "green" &&
+                    getRouteRisk(route, routeWeather[route.id]).tone !==
+                      "muted")) && (
+                  <span
+                    style={{
+                      gridColumn: "1 / -1",
+                      padding: "8px 10px",
+                      background:
+                        getRouteRisk(route, routeWeather[route.id]).tone ===
+                        "red"
+                          ? "#fbeceb"
+                          : "#fef8e7",
+                      color:
+                        getRouteRisk(route, routeWeather[route.id]).tone ===
+                        "red"
+                          ? "var(--red)"
+                          : "var(--amber)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      display: "flex",
+                      gap: "8px",
+                      alignItems: "flex-start",
+                      marginTop: "6px",
+                    }}
+                  >
+                    <AlertTriangle
+                      size={14}
+                      style={{ flexShrink: 0, marginTop: "2px" }}
+                    />
+                    <span
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "2px",
+                      }}
+                    >
+                      <strong>Warning</strong>
+                      <span>
+                        {route.disrupted
+                          ? "Route disrupted due to hazards. "
+                          : ""}
+                        {routeWeather[route.id]?.floodLevel &&
+                        routeWeather[route.id]?.floodLevel !== "Normal"
+                          ? `Flood Alert: ${routeWeather[route.id].floodLevel}. `
+                          : ""}
+                        {routeWeather[route.id]?.rainfall &&
+                        routeWeather[route.id].rainfall! > 15
+                          ? "Heavy rainfall expected."
+                          : ""}
+                      </span>
+                    </span>
+                  </span>
+                )}
+                {routeWeather[route.id] &&
+                  getRouteRisk(route, routeWeather[route.id]).tone ===
+                    "green" && (
+                    <span
+                      style={{
+                        gridColumn: "1 / -1",
+                        padding: "8px 10px",
+                        background: "var(--accent-soft)",
+                        color: "var(--accent)",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "flex-start",
+                        marginTop: "6px",
+                      }}
+                    >
+                      <ShieldCheck
+                        size={14}
+                        style={{ flexShrink: 0, marginTop: "2px" }}
+                      />
+                      <span
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "2px",
+                        }}
+                      >
+                        <strong>Info</strong>
+                        <span>
+                          Conditions are clear. Route is safe for travel.
+                        </span>
+                      </span>
+                    </span>
+                  )}
               </button>
             ))}
           </div>
-          <button className="primary-action" onClick={() => onLive(routes, selectedRouteId)}>
+          <button
+            className="primary-action"
+            onClick={() => onLive(routes, selectedRouteId)}
+          >
             Start navigation <Navigation size={17} />
           </button>
         </section>
@@ -884,7 +1043,17 @@ function Analysis({ trip, onLive }: { trip: Trip; onLive: (routes: RouteData[], 
   );
 }
 
-function Live({ trip, routes, selectedRouteId, onBack }: { trip: Trip; routes: RouteData[]; selectedRouteId: string; onBack: () => void }) {
+function Live({
+  trip,
+  routes,
+  selectedRouteId,
+  onBack,
+}: {
+  trip: Trip;
+  routes: RouteData[];
+  selectedRouteId: string;
+  onBack: () => void;
+}) {
   const [showEmergency, setShowEmergency] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -893,7 +1062,13 @@ function Live({ trip, routes, selectedRouteId, onBack }: { trip: Trip; routes: R
   return (
     <main className={`live-page ${isFullscreen ? "live-fullscreen" : ""}`}>
       <div className="live-map-wrap">
-        <MapCanvas live origin={trip.origin} destination={trip.destination} routes={routes} recommendedRouteId={selectedRouteId} />
+        <MapCanvas
+          live
+          origin={trip.origin}
+          destination={trip.destination}
+          routes={routes}
+          recommendedRouteId={selectedRouteId}
+        />
         <div className="live-top">
           <div className="live-heading">
             <span className="live-pill">
@@ -992,17 +1167,37 @@ function Live({ trip, routes, selectedRouteId, onBack }: { trip: Trip; routes: R
                   <span className="step-label">Route details</span>
                   <h2>{activeRoute?.label || "Safer path"}</h2>
                   <p>
-                    {activeRoute ? Math.round(activeRoute.distance / 1000) : "--"} km ·{" "}
-                    {activeRoute ? Math.floor(activeRoute.duration / 3600) : "--"}h{" "}
-                    {activeRoute ? Math.round((activeRoute.duration % 3600) / 60) : "--"}m remaining
+                    {activeRoute
+                      ? Math.round(activeRoute.distance / 1000)
+                      : "--"}{" "}
+                    km ·{" "}
+                    {activeRoute
+                      ? Math.floor(activeRoute.duration / 3600)
+                      : "--"}
+                    h{" "}
+                    {activeRoute
+                      ? Math.round((activeRoute.duration % 3600) / 60)
+                      : "--"}
+                    m remaining
                   </p>
                   <div className="modal-detail">
                     <span>Next hazard</span>
-                    <strong>{activeRoute?.disrupted ? "Landslide zone" : "None detected"}</strong>
+                    <strong>
+                      {activeRoute?.disrupted
+                        ? "Landslide zone"
+                        : "None detected"}
+                    </strong>
                   </div>
                   <div className="modal-detail">
                     <span>Arrival estimate</span>
-                    <strong>{new Date(Date.now() + (activeRoute?.duration || 0) * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</strong>
+                    <strong>
+                      {new Date(
+                        Date.now() + (activeRoute?.duration || 0) * 1000,
+                      ).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </strong>
                   </div>
                 </>
               )}
@@ -1038,21 +1233,21 @@ export default function Home() {
         />
       )}
       {step === "analysis" && (
-        <Analysis 
-          trip={trip} 
+        <Analysis
+          trip={trip}
           onLive={(r, id) => {
             setActiveRoutes(r);
             setActiveRouteId(id);
             setStep("live");
-          }} 
+          }}
         />
       )}
       {step === "live" && (
-        <Live 
-          trip={trip} 
+        <Live
+          trip={trip}
           routes={activeRoutes}
           selectedRouteId={activeRouteId}
-          onBack={() => setStep("analysis")} 
+          onBack={() => setStep("analysis")}
         />
       )}
       <WorkflowBar step={step} setStep={setStep} />

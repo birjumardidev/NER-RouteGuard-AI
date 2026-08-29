@@ -5,6 +5,7 @@ type RouteSummary = {
   label: string;
   distance: number;
   duration: number;
+  cwcFloodLevel?: string;
   steps?: Array<{ instruction: string; road: string; distance: number }>;
 };
 
@@ -45,11 +46,12 @@ export async function POST(request: Request) {
       });
     }
 
-    const simplifiedRoutes = validRoutes.map(({ id, label, distance, duration }) => ({
+    const simplifiedRoutes = validRoutes.map(({ id, label, distance, duration, cwcFloodLevel }) => ({
       id,
       label,
       distance,
       duration,
+      cwcFloodLevel,
     }));
 
     const response = await fetch(
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
             {
               role: "system",
               content:
-                'Compare driving routes for a logistics trip. You must respond ONLY with a valid JSON object containing exactly two keys: "recommendedRouteId" and "reason" (do not use numbers in reason). Do not include markdown formatting or any other text.',
+                'Compare driving routes for a logistics trip. You must respond ONLY with a valid JSON object containing exactly two keys: "recommendedRouteId" and "reason" (do not use numbers in reason). Do not include markdown formatting or any other text. Heavily penalize any routes where cwcFloodLevel is "Warning", "Danger", or "Extreme Danger", and always recommend the safest route.',
             },
             {
               role: "user",

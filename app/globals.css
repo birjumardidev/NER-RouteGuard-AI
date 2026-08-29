@@ -63,8 +63,7 @@ button {
   min-height: 100dvh;
   background:
     radial-gradient(circle at 88% -10%, #efe6d4 0, transparent 38%),
-    radial-gradient(circle at 8% 110%, #dfeee6 0, transparent 42%),
-    var(--bg);
+    radial-gradient(circle at 8% 110%, #dfeee6 0, transparent 42%), var(--bg);
 }
 
 .topbar {
@@ -99,7 +98,9 @@ button {
 }
 
 .brand strong {
-  font: 600 16px/1.1 "Fraunces", serif;
+  font:
+    600 16px/1.1 "Fraunces",
+    serif;
   letter-spacing: -0.03em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -187,7 +188,9 @@ button {
 
 .setup-copy h1,
 .analysis-title h1 {
-  font: 600 clamp(28px, 8vw, 40px) / 1.08 "Fraunces", serif;
+  font:
+    600 clamp(28px, 8vw, 40px) / 1.08 "Fraunces",
+    serif;
   letter-spacing: -0.035em;
   margin: 12px 0 10px;
   color: var(--ink);
@@ -225,7 +228,9 @@ button {
 }
 
 .panel-heading h2 {
-  font: 600 22px/1.2 "Fraunces", serif;
+  font:
+    600 22px/1.2 "Fraunces",
+    serif;
   margin: 6px 0 0;
   letter-spacing: -0.02em;
 }
@@ -474,7 +479,9 @@ label > span,
 }
 
 .score-badge strong {
-  font: 600 28px/1 "Fraunces", serif;
+  font:
+    600 28px/1 "Fraunces",
+    serif;
   color: var(--accent);
 }
 
@@ -673,7 +680,9 @@ label > span,
 }
 
 .recommended-head h2 {
-  font: 600 20px/1.25 "Fraunces", serif;
+  font:
+    600 20px/1.25 "Fraunces",
+    serif;
   margin: 6px 0 0;
 }
 
@@ -847,10 +856,12 @@ label > span,
   padding: 12px;
   margin-top: 8px;
   gap: 6px 10px;
+  min-width: 0;
 }
 
 .route-option > span:first-child {
   grid-area: name;
+  min-width: 0;
 }
 
 .route-option-metrics {
@@ -871,8 +882,7 @@ label > span,
   background: var(--accent-soft);
 }
 
-.route-option span,
-.route-option strong {
+.route-option > span {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -883,6 +893,8 @@ label > span,
   align-items: center;
   gap: 12px !important;
   font-size: 14px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .route-color-swatch {
@@ -894,7 +906,10 @@ label > span,
   margin-right: 6px !important;
 }
 
-.route-option strong {
+.route-option-metrics strong {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   text-align: right;
   font: 600 14px "Plus Jakarta Sans";
 }
@@ -913,6 +928,8 @@ label > span,
   align-items: flex-start;
   gap: 4px;
   line-height: 1.4;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .route-weather {
@@ -938,6 +955,29 @@ label > span,
 .route-option small {
   color: var(--muted);
   font: 500 12px "Plus Jakarta Sans";
+}
+
+@media (max-width: 639px) {
+  .route-option {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 11px 10px;
+    gap: 8px;
+  }
+
+  .route-option-metrics {
+    min-width: 62px;
+  }
+
+  .route-option-report {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    width: 100%;
+  }
+
+  .route-option-report small {
+    max-width: 100%;
+  }
 }
 
 .workflow-bar {
@@ -1178,14 +1218,16 @@ label > span,
 }
 
 .live-top h1 {
-  font: 600 12px/1.35 "Fraunces", serif;
+  font:
+    600 12px/1.35 "Fraunces",
+    serif;
   margin: 1px 0 0;
   display: flex;
   align-items: center;
   gap: 6px;
   color: var(--ink);
   background: transparent;
- 
+
   border-radius: 12px;
   padding: 8px 10px;
   width: 100%;
@@ -1215,7 +1257,9 @@ label > span,
 }
 
 .eta-live strong {
-  font: 600 20px/1 "Fraunces", serif;
+  font:
+    600 20px/1 "Fraunces",
+    serif;
   color: var(--ink);
   margin: 2px 0;
 }
@@ -1334,7 +1378,9 @@ label > span,
 
 .live-modal h2 {
   margin: 8px 0;
-  font: 600 22px "Fraunces", serif;
+  font:
+    600 22px "Fraunces",
+    serif;
 }
 
 .live-modal p {
