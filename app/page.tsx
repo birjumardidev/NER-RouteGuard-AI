@@ -257,7 +257,6 @@ function OpenStreetMap({
         L.marker([origin.coordinates[1], origin.coordinates[0]], {
           icon: startIcon,
           zIndexOffset: 400,
-          rotateWithView: false,
         })
           .addTo(map)
           .bindTooltip(`START · ${origin.name || "Origin"}`, {
@@ -270,7 +269,6 @@ function OpenStreetMap({
       L.marker([destination.coordinates[1], destination.coordinates[0]], {
         icon: endIcon,
         zIndexOffset: 400,
-        rotateWithView: false,
       })
         .addTo(map)
         .bindTooltip(
@@ -306,7 +304,6 @@ function OpenStreetMap({
         const vehicleMarker = L.marker(startPos, {
           icon: vehicle,
           zIndexOffset: 1000,
-          rotateWithView: true,
         }).addTo(map);
 
         vehicleMarker.bindTooltip("NER-MED-102", {
