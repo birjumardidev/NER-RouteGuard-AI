@@ -194,8 +194,22 @@ function OpenStreetMap({
         renderer: L.svg(),
         interactive: false,
       };
-      const routeLines = mapRoutes.map((route, index) => {
-        const coordinates = route.coordinates.map(
+      const routeEntries: Array<{ route: RouteData; line: any }> = [];
+
+      mapRoutes.forEach((route, index) => {
+        const validCoordinates = route.coordinates.filter(
+          (point): point is [number, number] =>
+            Array.isArray(point) &&
+            point.length >= 2 &&
+            Number.isFinite(point[0]) &&
+            Number.isFinite(point[1]),
+        );
+
+        if (validCoordinates.length < 2) {
+          return;
+        }
+
+        const coordinates = validCoordinates.map(
           ([longitude, latitude]) => [latitude, longitude] as [number, number],
         );
         const polyline = L.polyline(coordinates, {
@@ -205,9 +219,9 @@ function OpenStreetMap({
           ...routeOptions,
         });
 
-        if (coordinates.length > 0) {
-          const midIndex = Math.floor(coordinates.length / 2);
-          const midPoint = coordinates[midIndex];
+        const midIndex = Math.floor(coordinates.length / 2);
+        const midPoint = coordinates[midIndex];
+        if (midPoint) {
           L.tooltip({
             permanent: true,
             direction: "center",
@@ -218,15 +232,17 @@ function OpenStreetMap({
             .addTo(map);
         }
 
-        return polyline;
+        routeEntries.push({ route, line: polyline });
       });
 
+      const routeLines = routeEntries.map(({ line }) => line);
+
       // Render non-recommended routes first, then recommended, so recommended is always on top
-      routeLines.forEach((line, index) => {
-        if (mapRoutes[index].id !== recommendedRouteId) line.addTo(map);
+      routeEntries.forEach(({ route, line }) => {
+        if (route.id !== recommendedRouteId) line.addTo(map);
       });
-      routeLines.forEach((line, index) => {
-        if (mapRoutes[index].id === recommendedRouteId) line.addTo(map);
+      routeEntries.forEach(({ route, line }) => {
+        if (route.id === recommendedRouteId) line.addTo(map);
       });
       if (live) {
         const activeRoute =
@@ -919,18 +935,14 @@ function Analysis({
               <div className="ai-loading-bar">
                 <div className="ai-loading-progress" />
               </div>
-              <p className="ai-reason loading-text">
-                {recommendation.reason}
-              </p>
+              <p className="ai-reason loading-text">{recommendation.reason}</p>
               <div className="skeleton-lines">
                 <div className="skeleton-line" />
                 <div className="skeleton-line short" />
               </div>
             </div>
           ) : (
-            <p className="ai-reason">
-              {recommendation.reason}
-            </p>
+            <p className="ai-reason">{recommendation.reason}</p>
           )}
           <div className="route-options">
             <h3>Available routes</h3>
