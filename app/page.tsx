@@ -920,7 +920,7 @@ function Analysis({
                 <div className="ai-loading-progress" />
               </div>
               <p className="ai-reason loading-text">
-                {/* {recommendation.reason} */}
+                {recommendation.reason}
               </p>
               <div className="skeleton-lines">
                 <div className="skeleton-line" />
@@ -929,8 +929,7 @@ function Analysis({
             </div>
           ) : (
             <p className="ai-reason">
-              {/* {recommendation.reason} */}
-              Ai recommendation kl try krna , aaj limit khtm kr diye 🥲
+              {recommendation.reason}
             </p>
           )}
           <div className="route-options">
