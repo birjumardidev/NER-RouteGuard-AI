@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  return NextResponse.json({ service: "NER SmartRoute AI", status: "online" });
+  return NextResponse.json({ service: "NER RouteGuard AI", status: "online" });
 }
 
 export async function POST(request: Request) {
@@ -25,9 +25,24 @@ export async function POST(request: Request) {
     safetyScore: 86,
     riskLevel: "LOW",
     hazards: [
-      { type: "landslide", label: "Landslide prone zone", distance: "18 km", severity: "medium" },
-      { type: "rainfall", label: "Heavy rainfall area", distance: "28 km", severity: "high" },
-      { type: "bridge", label: "Narrow bridge", distance: "42 km", severity: "low" },
+      {
+        type: "landslide",
+        label: "Landslide prone zone",
+        distance: "18 km",
+        severity: "medium",
+      },
+      {
+        type: "rainfall",
+        label: "Heavy rainfall area",
+        distance: "28 km",
+        severity: "high",
+      },
+      {
+        type: "bridge",
+        label: "Narrow bridge",
+        distance: "42 km",
+        severity: "low",
+      },
     ],
     generatedAt: new Date().toISOString(),
   });

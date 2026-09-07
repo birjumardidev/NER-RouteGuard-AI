@@ -432,7 +432,7 @@ function Header() {
         <Navigation size={20} />
       </div>
       <div className="brand">
-        <strong>NER SmartRoute</strong>
+        <strong>NER RouteGuard AI</strong>
         <span>AI navigation</span>
       </div>
       <div className="network">

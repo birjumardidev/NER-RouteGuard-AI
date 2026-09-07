@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "NER SmartRoute AI",
+  title: "NER RouteGuard AI",
   description: "Simple AI navigation that finds a safer route for your trip.",
 };
 

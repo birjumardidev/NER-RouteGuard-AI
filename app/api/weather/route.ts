@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     const response = await fetch(imdUrl, {
       headers: {
         Accept: "application/json",
-        "User-Agent": "NER-SmartRoute/1.0",
+        "User-Agent": "NER-RouteGuard-AI/1.0",
       },
       next: { revalidate: 600 },
     });

@@ -1,10 +1,10 @@
-# NER SmartRoute AI
+# NER RouteGuard AI
 
 ## SIH 2026 | Problem Statement ID: SIH26002
 
 **AI-Based Smart Logistics and Accessibility Intelligence Platform for North Eastern Region (NER)**
 
-NER SmartRoute AI is a driver-facing MVP for the SIH 2026 problem statement. It helps drivers and logistics operators choose safer routes for essential-goods movement across the North Eastern Region by combining route alternatives, current weather, flood-risk signals, and AI-assisted route comparison.
+NER RouteGuard AI is a driver-facing MVP for the SIH 2026 problem statement. It helps drivers and logistics operators choose safer routes for essential-goods movement across the North Eastern Region by combining route alternatives, current weather, flood-risk signals, and AI-assisted route comparison.
 
 The long-term solution is a complete logistics and accessibility intelligence platform for government departments, district authorities, control rooms, fleet operators, and field officials. This repository currently focuses on the driver workflow: plan a trip, understand route risk, and navigate the recommended route.
 

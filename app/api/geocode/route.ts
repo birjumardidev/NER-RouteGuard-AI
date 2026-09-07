@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const response = await fetch(
     `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=in&q=${encodeURIComponent(query)}`,
     {
-      headers: { "User-Agent": "NER-SmartRoute-AI/1.0" },
+      headers: { "User-Agent": "NER-RouteGuard-AI/1.0" },
       next: { revalidate: 3600 },
     },
   );
